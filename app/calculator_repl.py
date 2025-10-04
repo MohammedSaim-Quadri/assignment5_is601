@@ -96,7 +96,8 @@ def calculator_repl():
                 if command == 'help':
                     # Display available commands
                     print("\nAvailable commands:")
-                    print("  add (+), subtract (-), multiply (*), divide (/), power (^), root - Perform calculations")
+                    print("  add (+), subtract (-), multiply (*), divide (/), power (^), root - Perform standard calculations")
+                    print("  expr - Evaluate full mathematical expressions (e.g., expr 5+3*2 or expr (4+6)/2)")
                     print("  history - Show calculation history")
                     print("  clear - Clear calculation history")
                     print("  undo - Undo the last calculation")
@@ -105,7 +106,6 @@ def calculator_repl():
                     print("  load - Load calculation history from file")
                     print("  exit - Exit the calculator")
                     continue
-
                 if command == 'exit':
                     # Attempt to save history before exiting
                     try:
