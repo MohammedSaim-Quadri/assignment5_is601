@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 from app.calculation import Calculation
 from app.calculator import Calculator
 from app.calculator_repl import calculator_repl, _eval_expr
+from app.calculator_memento import CalculatorMemento
 from app.input_validators import InputValidator
 from app.calculator_config import CalculatorConfig
 from app.exceptions import OperationError, ValidationError
@@ -436,6 +437,15 @@ def test_calculator_repl_exception_in_loop(mock_print, mock_input):
     calls = [str(call) for call in mock_print.call_args_list]
     assert any("Error:" in call for call in calls)
 
+@patch('builtins.input', side_effect=['exit'])
+@patch('app.calculator.Calculator.__init__', side_effect=Exception("Fatal init error"))
+def test_repl_fatal_error_on_init(mock_init, mock_input, capsys):
+    """Test the REPL's fatal error handler on calculator initialization failure."""
+    with pytest.raises(Exception, match="Fatal init error"):
+        calculator_repl()
+    
+    captured = capsys.readouterr()
+    assert "Fatal error: Fatal init error" in captured.out
 
 
 # expression evaluation tests for _eval_expr function
@@ -485,3 +495,57 @@ def test_expr_integration_with_calculator():
     assert calc.history[-1].operation == "Expression"
     assert calc.history[-1].calculate() == validated
 
+# Test error handling in Calculator methods
+def test_setup_logging_fails(capsys):
+    """Test that an error during logging setup is handled."""
+    with patch('logging.basicConfig', side_effect=Exception("Permission denied")):
+        with pytest.raises(Exception, match="Permission denied"):
+            # We must instantiate the class inside the test to trigger the error
+            Calculator(CalculatorConfig())
+        # Check that the print statement was called
+        captured = capsys.readouterr()
+        assert "Error setting up logging" in captured.out
+
+def test_perform_operation_generic_exception(calculator):
+    """Test handling of a generic exception during an operation."""
+    operation = OperationFactory.create_operation('add')
+    calculator.set_operation(operation)
+    
+    # Mock the execute method to raise a generic Exception
+    with patch.object(operation, 'execute', side_effect=Exception("A random error")):
+        with pytest.raises(OperationError, match="Operation failed: A random error"):
+            calculator.perform_operation(2, 3)
+
+def test_save_history_fails(calculator):
+    """Test that an error during history saving is handled."""
+    with patch('pandas.DataFrame.to_csv', side_effect=Exception("Disk full")):
+        with pytest.raises(OperationError, match="Failed to save history: Disk full"):
+            calculator.save_history()
+
+def test_load_history_fails(calculator):
+    """Test that an error during history loading is handled."""
+    # Ensure the history file exists for the test to attempt reading it
+    calculator.config.history_file.touch()
+    with patch('pandas.read_csv', side_effect=Exception("Corrupt file")):
+        with pytest.raises(OperationError, match="Failed to load history: Corrupt file"):
+            calculator.load_history()
+
+@patch('logging.warning')
+def test_init_load_history_fails(mock_warning):
+    """Test that a failure to load history during __init__ is logged."""
+    with patch.object(Calculator, 'load_history', side_effect=Exception("Cannot load")):
+        Calculator()
+        mock_warning.assert_called_once_with("Could not load existing history: Cannot load")
+
+# Tests for Calculation memento
+def test_memento_with_empty_history():
+    """Test memento serialization with an empty history list."""
+    memento = CalculatorMemento(history=[])
+    memento_dict = memento.to_dict()
+
+    # Test to_dict
+    assert memento_dict['history'] == []
+    
+    # Test from_dict
+    restored_memento = CalculatorMemento.from_dict(memento_dict)
+    assert restored_memento.history == []

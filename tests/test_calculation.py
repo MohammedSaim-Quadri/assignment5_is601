@@ -130,3 +130,15 @@ def test_from_dict_result_mismatch(caplog):
 
     # Assert
     assert "Loaded calculation result 10 differs from computed result 5" in caplog.text
+
+def test_repr():
+    """Test the __repr__ method for unambiguous representation."""
+    calc = Calculation(operation="Addition", operand1=Decimal("1"), operand2=Decimal("2"))
+    # The exact timestamp will vary, so we check the start of the string
+    assert repr(calc).startswith("Calculation(operation='Addition', operand1=1, operand2=2")
+
+def test_equality_with_other_types():
+    """Test equality comparison with non-Calculation types."""
+    calc = Calculation(operation="Addition", operand1=Decimal("1"), operand2=Decimal("2"))
+    assert (calc == 123) is False
+    assert (calc == "some_string") is False
